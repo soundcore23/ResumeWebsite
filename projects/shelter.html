@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+   <head>
+      <meta charset="UTF-8">
+      <title>Shelter Tracker</title>
+      <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
+      <link rel="stylesheet" href="../css/style.css">
+      <link href="https://cdn.jsdelivr.net/npm/prismjs/themes/prism-tomorrow.css" rel="stylesheet" />
+   </head>
+   
+   <body>
+      <div class="background"></div>
+      <div class="nav-container">
+         <div class="nav-bar">
+            <div class="site-title">Aditya Ayappa - Portfolio</div>
+            <div class="middle-group">
+               <div class="tab-buttons">
+                  <a href="../index.html#statement" class="tab-btn">Statement</a>
+                  <a href="../index.html#skills" class="tab-btn">Skills</a>
+                  <a href="../index.html#projects" class="tab-btn active">Projects</a>
+               </div>
+               <a href="https://github.com/soundcore23" target="_blank" class="github-link" title="GitHub">
+               <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/github/github-original.svg" alt="GitHub" class="github-icon" />
+               </a>
+               <a href="mailto:youremail@example.com" class="email-link" title="Email Me">
+               <img src="https://cdn.jsdelivr.net/gh/iconic/open-iconic/svg/envelope-closed.svg" alt="Email" class="email-icon" />
+               </a>
+            </div>
+         </div>
+      </div>
+      <div class="project-detail">
+         <h1>SHARE Shelter Tracker</h1>
+         <p class="project-summary">
+            A full-stack web GIS platform designed for SHARE/WHEEL to locate, evaluate, and manage potential shelter sites across Seattle. The application allows spatial filtering, real-time editing, and interactive buffer analysis.
+         </p>
+         <h2>Key Features and Code</h2>
+         <ul class="feature-list">
+         <li> Interactive Mapbox map with choropleth transit accessibility overlay</li>
+         <div class="image-center">
+            <img src="../assets/shelterimg1.png" alt="Transit Accessibility Layer" class="shelterimg1" />
+         </div>
+         <!-- ==== BEGIN: Code & Explanation Panel ==== -->
+         <div class="code-explanation-wrapper">
+            <div class="code-panel">
+               <pre class="code-block language-python"><code class="code-example" data-index="0">
+import geopandas as gpd
+from scipy import stats
+
+def score_parcels_by_transit(parcel_path, bus_stops_path, output_path, buffer_radius=800):
+    """
+    This function takes in parcel data and bus stop locations in Seattle to generate a transit accessibility
+    score for each parcel. It creates an 800-meter buffer around each parcel's geometry to represent walkable
+    distance, then counts how many bus stops fall within that buffer. The raw counts are normalized relative
+    to the maximum stop count to produce a 0–1 transit score. The final output includes each parcel's geometry,
+    number of nearby stops, total stop count, and transit score, and is saved as a new GeoJSON file.
+    """
+    parcels = gpd.read_file(parcel_path)
+    bus_stops = gpd.read_file(bus_stops_path)
+
+    parcels = parcels.to_crs(epsg=3857)
+    bus_stops = bus_stops.to_crs(parcels.crs)
+
+    parcel_buffers = parcels.copy()
+    parcel_buffers["geometry"] = parcels.geometry.buffer(buffer_radius)
+
+    joined = gpd.sjoin(bus_stops, parcel_buffers, predicate="within")
+
+    stop_counts = joined.groupby("index_right").size()
+
+    scored = parcels.copy()
+    scored["num_stops_within_800m"] = scored.index.map(stop_counts).fillna(0).astype(int)
+    scored["total_stop_count"] = len(bus_stops)
+    max_count = scored["num_stops_within_800m"].max()
+    scored["transit_score"] = scored["num_stops_within_800m"] / max_count if max_count > 0 else 0
+
+    output = scored[["geometry", "num_stops_within_800m", "transit_score", "total_stop_count"]]
+    output.to_file(output_path, driver="GeoJSON")
+
+    print(f"✅ Transit scoring complete. Output saved to: {output_path}")
+
+
+</code></pre>
+               <pre class="code-block language-python" style="display:none;"><code class="code-example" data-index="1">
+
+import geopandas as gpd
+
+def categorize_transit_scores(input_path, output_path):
+    """
+    Loads a GeoJSON of parcels with transit scores and assigns each parcel a categorical
+    label based on its transit accessibility. The score is bucketed into descriptive categories
+    like 'No access', 'Low access', and 'Excellent access'. The result is saved as a new
+    GeoJSON with a readable score_category field for mapping and analysis.
+    """
+    scored = gpd.read_file(input_path)
+
+    def categorize(score):
+        if score <= 0.05:
+            return "No access"
+        elif score <= 0.15:
+            return "Low access"
+        elif score <= 0.30:
+            return "Medium access"
+        elif score <= 0.60:
+            return "High access"
+        else:
+            return "Excellent access"
+
+    scored["score_category"] = scored["transit_score"].apply(categorize)
+    scored.to_file(output_path, driver="GeoJSON")
+    print("✅ Categorized GeoJSON saved.")
+
+
+
+</code></pre>
+               <pre class="code-block language-python" style="display:none;"><code class="code-example" data-index="2">
+import geopandas as gpd
+
+def dissolve_parcels_by_score(input_path, output_path):
+    """
+    Loads parcel data with categorized transit scores, applies a small buffer to enforce 
+    topological overlap, and dissolves geometries by score category. A negative buffer is 
+    then applied to restore original shapes. The result is a simplified GeoJSON with one 
+    geometry per score group, optimized for web map rendering.
+    """
+    gdf = gpd.read_file(input_path)
+    gdf["geometry"] = gdf.buffer(1)
+    dissolved = gdf.dissolve(by="score_category")
+    dissolved["geometry"] = dissolved.buffer(-1)
+    dissolved.to_file(output_path, driver="GeoJSON")
+    
+    print(f"✅ Dissolved GeoJSON saved to: {output_path}")
+</code></pre>
+               <div class="code-nav-buttons">
+                  <button class="prevCodeBtn">&lt;</button>
+                  <button class="nextCodeBtn">&gt;</button>
+               </div>
+            </div>
+            <div class="explanation-panel">
+               <div class="explanation" data-index="0">
+                  <p>
+                     This scoring system is critical to the project because it quantifies how well-connected each parcel is to
+                     Seattle’s public transit network. By visualizing these scores, the platform helps stakeholders quickly
+                     identify parcels that are transit-accessible and therefore more suitable for shelter development alongside other considerations such as zoning laws.
+                     This approach supports fairer and smarter site selection grounded in real accessibility metrics
+                  </p>
+               </div>
+               <div class="explanation" data-index="1" style="display:none;">
+                  <p>
+                     This function categorizes each parcel’s transit score into five intuitive buckets:
+                     “No access”, “Low access”, “Medium access”, “High access”, and “Excellent access”.
+                     These labels make the map easier to interpret for non-technical users and allow for
+                     meaningful visual distinctions on the choropleth layer.
+                  </p>
+                  <p>
+                     The breakpoints for these categories were chosen after analyzing the distribution
+                     of transit scores across all parcels. Key statistics like the mean, median, mode,
+                     standard deviation, and quartiles were used to understand where natural cutoffs might lie.
+                     For example, scores below 0.05 were extremely common and clustered near 0, so they were
+                     labeled “No access”. Scores above 0.60 were relatively rare and reflected strong transit
+                     presence, justifying the “Excellent access” label. The remaining ranges were split to
+                     reflect gradual tiers of accessibility.
+                  </p>
+               </div>
+               <div class="explanation" data-index="2" style="display:none;">
+                  <p>
+                     This function simplifies parcel data by merging all parcels that share the same transit score 
+                     category into unified geometries. A 1-meter buffer is applied first to ensure that adjacent 
+                     parcels touch — a requirement for the dissolve operation to work consistently. Once dissolved, 
+                     a negative buffer reverses the earlier shape inflation.
+                  </p>
+                  <p>
+                     This process is critical for performance and usability. The original dataset contained thousands 
+                     of individual geometries, which slowed down the web map and made visualization cluttered. By 
+                     dissolving into broader score zones, the map becomes easier to render and interpret, while still 
+                     conveying the spatial distribution of transit access.
+                  </p>
+               </div>
+            </div>
+         </div>
+         <!-- ==== END: Code & Explanation Panel ==== -->
+         <ul class="feature-list">
+         <li>
+            The buffer feature lets users select a shelter and apply a custom buffer
+            radius (e.g. 800 meters) to visualize nearby schools, hospitals, and bus stops. 
+         </li>
+         <img src="../assets/shelterimg2.png" alt="Add Shelter Interface", class = 'shelterimg2' />
+         <div class="code-explanation-wrapper">
+            <div class="code-panel">
+               <pre class="code-block language-javascript" style="display:none;"><code class="code-example" data-index="4">
+function checkNearbyFeatures(featureData, layerPrefix, iconName, radiusMeters, resultElementId) {
+  if (!currentShelterCoords) {
+    alert("Please select an address first.");
+    return 0;
+  }
+
+  const shelterPoint = turf.point(currentShelterCoords);
+  const buffer = turf.buffer(shelterPoint, radiusMeters, { units: 'meters' });
+
+  let featuresInBuffer = [];
+
+  if (featureData) {
+    featureData.features.forEach(f => {
+      const pt = turf.point(f.geometry.coordinates);
+      if (turf.booleanPointInPolygon(pt, buffer)) {
+        featuresInBuffer.push(f);
+      }
+    });
+  }
+
+  let layerName = '';
+  if (resultElementId === 'hospitalAccessResult') layerName = 'hospitals';
+  else if (resultElementId === 'schoolAccessResult') layerName = 'schools';
+  else if (resultElementId === 'busStopsAccessResult') layerName = 'bus stops';
+
+  document.getElementById(resultElementId).textContent = 
+    \`\${featuresInBuffer.length} \${layerName} within \${radiusMeters}m\`;
+
+  const bufferSourceId = \`\${layerPrefix}-buffer\`;
+  const bufferLayerId = \`\${layerPrefix}-buffer-layer\`;
+
+  if (map.getSource(bufferSourceId)) {
+    map.getSource(bufferSourceId).setData(buffer);
+  } else {
+    map.addSource(bufferSourceId, { type: 'geojson', data: buffer });
+    map.addLayer({
+      id: bufferLayerId,
+      type: 'fill',
+      source: bufferSourceId,
+      paint: {
+        'fill-color': '#ffa500',
+        'fill-opacity': 0.09,
+        'fill-outline-color': '#ffa500'
+      }
+    });
+  }
+
+  const pointsGeoJSON = {
+    type: 'FeatureCollection',
+    features: featuresInBuffer
+  };
+
+  const pointsSourceId = \`\${layerPrefix}-points\`;
+  const pointsLayerId = \`\${layerPrefix}-points-layer\`;
+
+  if (map.getSource(pointsSourceId)) {
+    map.getSource(pointsSourceId).setData(pointsGeoJSON);
+  } else {
+    map.addSource(pointsSourceId, { type: 'geojson', data: pointsGeoJSON });
+    map.addLayer({
+      id: pointsLayerId,
+      type: 'symbol',
+      source: pointsSourceId,
+      layout: {
+        'icon-image': iconName,
+        'icon-size': 0.15,
+        'icon-allow-overlap': true
+      }
+    });
+
+    if (map.getLayer('shelters-layer')) {
+      map.moveLayer('shelters-layer');
+    }
+  }
+
+  return featuresInBuffer.length;
+}
+</code></pre>
+               <pre class="code-block language-javascript" style="display:none;"><code class="code-example" data-index="5">
+function checkAllNearbyFeatures() {
+  const radiusMeters = parseInt(document.getElementById('bufferRadiusInput').value) || 400;
+
+  const hospitalsCount = checkNearbyFeatures(
+    hospitalsData, 'allfeatures-hospitals', 'hospital-icon', radiusMeters, 'hospitalAccessResult'
+  );
+
+  const schoolsCount = checkNearbyFeatures(
+    schoolsData, 'allfeatures-schools', 'school-icon', radiusMeters, 'schoolAccessResult'
+  );
+
+  const busStopsCount = checkNearbyFeatures(
+    busStopsData, 'allfeatures-busstops', 'bus-icon', radiusMeters, 'busStopsAccessResult'
+  );
+}
+</code></pre>
+               <div class="code-nav-buttons">
+                  <button class="prevCodeBtn">&lt;</button>
+                  <button class="nextCodeBtn">&gt;</button>
+               </div>
+            </div>
+            <div class="explanation-panel">
+               <div class="explanation" data-index="0">
+                  <p>
+                     This function uses Turf.js to create a circular buffer around the currently selected shelter,
+                     then checks which features (schools, hospitals, or bus stops) fall within that buffer.
+                     It counts and displays the number of matches, plots the buffer zone as a translucent orange shape,
+                     and adds all nearby features as icons on the map using the specified icon style and layer prefix.
+                  </p>
+                  <p>
+                     This is the core spatial analysis function behind the buffer tool — enabling real-time proximity
+                     detection and visual context for shelter access to essential services.
+                  </p>
+               </div>
+               <div class="explanation" data-index="1" style="display:none;">
+                  <p>This function retrieves the buffer radius input by the user, defaults to 400 meters if blank,
+                     and then calls the core buffer-check function for each dataset: hospitals, schools, and bus stops.
+                     It triggers the spatial evaluation workflow and updates each result panel with nearby service counts.
+                  </p>
+               </div>
+            </div>
+         </div>
+         <h2>Tech Stack</h2>
+         <ul class="tech-list">
+            <li><strong>Frontend:</strong> HTML, CSS, JavaScript, Mapbox GL JS</li>
+            <li><strong>Backend:</strong> Python, Flask API, GeoPandas</li>
+            <li><strong>Hosting:</strong> Render.com (full-stack), WordPress (domain)</li>
+            <li><strong>Data Cleaning:</strong> ArcGIS Pro</li>
+            <li><strong>Version Control:</strong> GitHub</li>
+         </ul>
+         <h2>Data Sources</h2>
+         <ul>
+            <li> Seattle Public Schools dataset (Seattle Open Data)</li>
+            <li> Hospital locations (City of Seattle GIS)</li>
+            <li> King County Parcel data (land use, zoning, square footage)</li>
+            <li> Sound Transit GTFS feed (bus & train stops)</li>
+         </ul>
+         <img src="../assets/shelterimg3.png" alt="Buffer Accessibility Example" />
+         <h2>Data Integration</h2>
+         <p>
+            Parcel data was clipped to Seattle boundaries using ArcGIS Pro. We used GeoPandas to assign transit access scores and generate POI buffers. A Flask backend handles GeoJSON commits triggered via form submission.
+         </p>
+         <img src="../assets/shelterimg4.png" alt="Python Site Dictionary Code" />
+         <h2>Findings</h2>
+         <p>
+            The system streamlined site exploration by combining real-time editing with spatial visualization. SHARE can now view, update, and assess shelter sites with a few clicks — backed by transit and service data overlays.
+         </p>
+         <h2>Future Recommendations</h2>
+         <ul>
+            <li> Add Supabase login to restrict access to staff</li>
+            <li> Integrate LLM for smart queries and field suggestions</li>
+            <li> Automate data updates for parcel and transit feeds</li>
+            <li> Partner with municipal land providers for scaling up</li>
+         </ul>
+         <div class="project-links">
+            <a href="https://github.com/mtwinarske/SHARE-Shelter-Site-Map" target="_blank">View GitHub Repo</a>
+         </div>
+      </div>
+      <script src="../js/codepanel.js"></script>
+      <script src="https://cdn.jsdelivr.net/npm/prismjs/prism.js"></script>
+      <script src="https://cdn.jsdelivr.net/npm/prismjs/components/prism-python.min.js"></script>
+   </body>
+</html>

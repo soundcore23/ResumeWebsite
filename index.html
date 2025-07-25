@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aditya's Resume</title>
+  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="background"></div>
+
+<div class="nav-container">
+  <div class="nav-bar">
+    <div class="site-title">Aditya Ayappa - Portfolio</div>
+
+    <div class="middle-group">
+      <div class="tab-buttons">
+        <a href="#statement" class="tab-btn active">Statement</a>
+        <a href="#skills" class="tab-btn">Skills</a>
+        <a href="#projects" class="tab-btn">Projects</a>
+      </div>
+      <a href="https://github.com/soundcore23" target="_blank" class="github-link">
+        <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/github/github-original.svg" alt="GitHub" class="github-icon" />
+      </a>
+      <a href="mailto:adiayappa1@gmail.com" class="email-link" title="Email Me">
+  <img src="https://cdn.jsdelivr.net/gh/iconic/open-iconic/svg/envelope-closed.svg" alt="Email" class="email-icon" />
+</a>
+    </div>
+  </div>
+</div> <!-- ✅ This line was missing -->
+
+<div id="statement" class="tab-content">
+  <h1>Statement of Purpose</h1>
+  <p>This is your mission.</p>
+</div>
+
+<div id="skills" class="tab-content" style="display: none;">
+  <h1>Skills</h1>
+  <p>What you're great at.</p>
+</div>
+
+<div id="projects" class="tab-content" style="display: none;">
+
+  <div class="project-cards">
+    <a href="projects/shelter.html" class="project-card">
+      <h2>SHARE Shelter Tracker</h2>
+      <p>Helps track, display, and update shelter locations for homeless services in real time.</p>
+    </a>
+    <a href="projects/restaurant.html" class="project-card">
+      <h2>Seattle Restaurant Analysis</h2>
+      <p>Maps restaurant competition by cuisine using walkability, income, and reviews data.</p>
+    </a>
+  </div>
+</div>
+
+<!-- At the bottom before </body> -->
+<script src="js/script.js" defer></script>
+
+</body>
+</html>
